@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, X} from 'lucide-react';
-
+import axios from 'axios'; 
 
 
 export default function Home() {
@@ -85,7 +85,11 @@ export default function Home() {
     }
     return null;
   }
-
+  
+  const searchPlaces = async (input){ 
+    //implement auto compete and place suggestions
+  
+  }
   
     return ( 
       <div>

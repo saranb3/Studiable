@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { Search, X} from 'lucide-react';
+
+
 
 export default function Home() {
   const [currentInput, setCurrentInput] = useState(''); 
@@ -10,8 +13,13 @@ export default function Home() {
     }
   }
 
-  function handleButtonClick() {
+  function handleSearchClick() {
     setSelectedLocation(currentInput);
+  }
+
+  function handleClearClick(){ 
+    setSelectedLocation(''); 
+    setCurrentInput(''); 
   }
 
   function showLocation(){ 
@@ -79,14 +87,18 @@ export default function Home() {
   }
 
   
-  return ( 
-    <div>
-      <h1> Find a Studiable Space!</h1>
-      <input type="text" placeholder="Search by location"
-      value = {currentInput} 
-      onChange= {e => setCurrentInput(e.target.value)}
-      onKeyDown={handleEnterSearch}/>
-      <button onClick={handleButtonClick} >Search </button>
+    return ( 
+      <div>
+        <h1> Find a Studiable Space!</h1>
+        <div className="relative"> 
+          <input type="text" placeholder="Search study spots..."
+          value = {currentInput} 
+          onChange= {e => setCurrentInput(e.target.value)}
+          onKeyDown={handleEnterSearch}/>
+          <button className="absolute right-400 top-1/2 -translate-y-1/2" onClick={handleClearClick}> <X /> </button>
+          <button className="absolute right-410 top-1/2 -translate-y-1/2" onClick={handleSearchClick}> <Search /> </button>
+        </div> 
+
       {showLocation()}
       <br/>
       {showStudySpots()}

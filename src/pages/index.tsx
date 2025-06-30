@@ -31,7 +31,7 @@ export default function Home() {
   const studySpots = [ 
     {
       name: "Starbucks", 
-      location: "101 เดอะเติร์ธเพลส ห้อง 112-A ชั้น 1", 
+      location: "101 เดอะเติร์ธเพลส ห้อง 112-A ชั้น 1 โซนฮิลล์ไซด์ ทาวน์, ถนน สุขุมวิท 101/1 Bang Chak, Phra Khanong, Bangkok 10260", 
       rating: 4.7,
       Wifi: true, 
       Coffee: true, 
@@ -42,7 +42,7 @@ export default function Home() {
 
     {
       name: "True Cafe", 
-      location: "ศูนย์การค้า วิสซ์ดอม วัน-โอ-วัน", 
+      location: "ศูนย์การค้า วิสซ์ดอม วัน-โอ-วัน, เลขที่ 101 Sukhumvit Rd, Bang Chak, Phra Khanong, Bangkok 10260", 
       rating: 4.6,
       Wifi: true, 
       Coffee: true, 
@@ -61,6 +61,12 @@ export default function Home() {
       Outlets: true,
       openTime: "8:00 AM - 10:00 PM"
     }, 
+  ];
+  
+  const studySpotCoordinates = [
+    { lat: 13.6844702, lng: 100.622732 },      // Starbucks
+    { lat: 13.6853996, lng: 100.6111126 },     // True Cafe  
+    { lat: 13.6926677, lng: 100.6284165 },     // Cataleya Estate
   ];
   
   function showStudySpots(){ 
@@ -85,16 +91,13 @@ export default function Home() {
     }
     return null;
   }
-  
-  // const searchPlaces = async (input){ 
-  //   //implement auto compete and place suggestions
-  
-  // }
+
   
     return ( 
       <div>
         <h1> Find a Studiable Space!</h1>
         <div className="relative"> 
+        
           <input type="text" placeholder="Search study spots..."
           value = {currentInput} 
           onChange= {e => setCurrentInput(e.target.value)}
@@ -106,6 +109,7 @@ export default function Home() {
       {showLocation()}
       <br/>
       {showStudySpots()}
-    </div>
+      
+      </div>
   );
 }

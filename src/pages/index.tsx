@@ -86,10 +86,10 @@ export default function Home() {
     return null;
   }
   
-  const searchPlaces = async (input){ 
-    //implement auto compete and place suggestions
+  // const searchPlaces = async (input){ 
+  //   //implement auto compete and place suggestions
   
-  }
+  // }
   
     return ( 
       <div>

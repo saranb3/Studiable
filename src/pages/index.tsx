@@ -2,10 +2,41 @@ import { useState, useEffect } from "react";
 import { Search, X} from 'lucide-react';
 import axios from 'axios'; 
 
+type Suggestion = {
+  description: string;
+  place_id: string;
+};
 
 export default function Home() {
   const [currentInput, setCurrentInput] = useState(''); 
   const [selectedLocation, setSelectedLocation] = useState(''); 
+
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  async function fetchSuggestions(input: string) {
+    try {
+      const response = await fetch('/api/places-autocomplete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input })
+      });
+      
+      const data = await response.json();
+      
+      if (data.predictions) {
+        setSuggestions(data.predictions);
+        setShowSuggestions(true);
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    } catch (error) {
+      console.error('Error fetching suggestions:', error);
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }
 
   function handleEnterSearch(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
@@ -73,7 +104,7 @@ export default function Home() {
     if(selectedLocation) { 
       return (
         <ul>
-          {studySpots.map((spot, idx) => (
+          {studySpots.slice(0, 3).map((spot, idx) => (
             <>
               <li key={idx}>
                 <div>Name: {spot.name}</div>
@@ -92,24 +123,52 @@ export default function Home() {
     return null;
   }
 
-  
-    return ( 
-      <div>
-        <h1> Find a Studiable Space!</h1>
-        <div className="relative"> 
-        
-          <input type="text" placeholder="Search study spots..."
-          value = {currentInput} 
-          onChange= {e => setCurrentInput(e.target.value)}
-          onKeyDown={handleEnterSearch}/>
-          <button className="absolute right-400 top-1/2 -translate-y-1/2" onClick={handleClearClick}> <X /> </button>
-          <button className="absolute right-410 top-1/2 -translate-y-1/2" onClick={handleSearchClick}> <Search /> </button>
-        </div> 
+  // Handler for when a suggestion is clicked
+  function handleSuggestionClick(suggestion: Suggestion) {
+    setCurrentInput(suggestion.description);
+    setShowSuggestions(false);
+    // Optionally: setSelectedLocation(suggestion.description);
+  }
 
-      {showLocation()}
-      <br/>
-      {showStudySpots()}
-      
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (currentInput.length >= 3) {
+        fetchSuggestions(currentInput);
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [currentInput]);
+
+  return (
+    <div>
+      <h1> Find a Studiable Space!</h1>
+      <div className="relative"> 
+        <input type="text" placeholder="Search study spots..."
+          value={currentInput} 
+          onChange={e => setCurrentInput(e.target.value)}
+          onKeyDown={handleEnterSearch}/>
+        <button className="absolute right-400 top-1/2 -translate-y-1/2" onClick={handleClearClick}> <X /> </button>
+        <button className="absolute right-410 top-1/2 -translate-y-1/2" onClick={handleSearchClick}> <Search /> </button>
+        {showSuggestions && suggestions.length > 0 && (
+          <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded shadow-lg z-10">
+            {suggestions.map((suggestion) => (
+              <div
+                key={suggestion.place_id}
+                className="p-2 hover:bg-gray-100 cursor-pointer"
+                onClick={() => handleSuggestionClick(suggestion)}
+              >
+                {suggestion.description}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+      {showLocation()}
+      <br />
+      {showStudySpots()}
+    </div>
   );
 }

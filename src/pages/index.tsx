@@ -126,8 +126,8 @@ export default function Home() {
   // Handler for when a suggestion is clicked
   function handleSuggestionClick(suggestion: Suggestion) {
     setCurrentInput(suggestion.description);
+    setSelectedLocation(suggestion.description);
     setShowSuggestions(false);
-    // Optionally: setSelectedLocation(suggestion.description);
   }
 
   useEffect(() => {

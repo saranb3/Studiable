@@ -138,14 +138,16 @@ export default function Home() {
 
   return (
     <div>
-      {/* 1. Header section - full width, centered */}
-      <div className="text-center py-16 px-4">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4"> Find a Studiable Space!</h1>
-        <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto"> Discover quiet cafes, libraries, and coworking spaces!</p> 
-      
-        {/* Flex row for label and search bar */}
-        <div className="max-w-xl mx-auto flex items-center gap-4 relative"> 
-          <span className="whitespace-nowrap text-lg font-medium text-gray-700">Show study spots near:</span>
+      {/* Header Bar */}
+      <div className="text-center py-12 px-4 bg-white shadow">
+        <h1 className="text-4xl font-bold text-gray-900 mb-2">Find a Studiable Space!</h1>
+        <p className="text-lg text-gray-600 mb-6 max-w-2xl mx-auto">
+          Discover quiet cafes, libraries, and coworking spaces!
+        </p>
+        <div className="max-w-xl mx-auto flex items-center gap-4">
+          <span className="whitespace-nowrap text-lg font-medium text-gray-700">
+            Show study spots near:
+          </span>
           <div className="flex-1 relative">
             <input
               type="text"
@@ -168,12 +170,60 @@ export default function Home() {
                 ))}
               </div>
             )}
-            <button className="absolute right-12 top-1/2 -translate-y-1/2" onClick={handleClearClick}> <X /> </button>
-            <button className="absolute right-2 top-1/2 -translate-y-1/2" onClick={handleSearchClick}> <Search /> </button>
+            <button className="absolute right-12 top-1/2 -translate-y-1/2" onClick={handleClearClick}>
+              <X />
+            </button>
+            <button className="absolute right-2 top-1/2 -translate-y-1/2" onClick={handleSearchClick}>
+              <Search />
+            </button>
           </div>
         </div>
-        <br />
-        {showStudySpots()}
+      </div>
+
+      {/* Main Section: Two Columns */}
+      <div className="flex gap-8 max-w-7xl mx-auto px-4 py-10">
+        {/* Filters Column (1/4) */}
+        <div className="w-1/4 bg-gray-50 p-6 rounded-lg shadow">
+          <h3 className="font-bold text-lg mb-4">Filters</h3>
+          {/* Distance */}
+          <div className="mb-6">
+            <h4 className="font-semibold mb-2">Distance</h4>
+            {/* Example radio buttons */}
+            <div>
+              <label><input type="radio" name="distance" value="1" /> 1 km</label><br />
+              <label><input type="radio" name="distance" value="5" /> 5 km</label><br />
+              <label><input type="radio" name="distance" value="10" /> 10 km</label>
+            </div>
+          </div>
+          {/* Amenities */}
+          <div className="mb-6">
+            <h4 className="font-semibold mb-2">Amenities</h4>
+            <div>
+              <label><input type="checkbox" /> WiFi</label><br />
+              <label><input type="checkbox" /> Coffee</label><br />
+              <label><input type="checkbox" /> Outlets</label>
+            </div>
+          </div>
+          {/* Availability */}
+          <div className="mb-6">
+            <h4 className="font-semibold mb-2">Availability</h4>
+            <div>
+              <label><input type="checkbox" /> Open Now</label>
+            </div>
+          </div>
+          {/* Minimum Rating */}
+          <div className="mb-6">
+            <h4 className="font-semibold mb-2">Minimum Rating</h4>
+            <div>
+              <label><input type="checkbox" /> 4.0+</label><br />
+              <label><input type="checkbox" /> 4.5+</label>
+            </div>
+          </div>
+        </div>
+        {/* Results Column (3/4) */}
+        <div className="w-3/4">
+          {showStudySpots()}
+        </div>
       </div>
     </div>
   );

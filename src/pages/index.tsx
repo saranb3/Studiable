@@ -15,6 +15,8 @@ export default function Home() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const justSelectedRef = useRef(false);
 
+  const [searchbarIsFocus, setSearchbarIsFocus] = useState(false); 
+
   async function fetchSuggestions(input: string) {
     try {
       const response = await fetch('/api/places-autocomplete', {
@@ -44,9 +46,35 @@ export default function Home() {
       setSelectedLocation(currentInput);
     }
   }
-
-  function handleSearchClick() {
-    setSelectedLocation(currentInput);
+  function handleCurrentLocation() {
+    console.log('handleCurrentLocation called!'); // Debug line 1
+    
+    if (navigator.geolocation) {
+      console.log('Geolocation is supported'); // Debug line 2
+      
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          console.log('Success getting location'); // Debug line 3
+          const { latitude, longitude } = position.coords;
+          
+          const coordinatesString = `${latitude}, ${longitude}`;
+          setSelectedLocation(coordinatesString);
+          setCurrentInput(coordinatesString);
+          setSearchbarIsFocus(false);
+          
+          console.log('User location:', coordinatesString);
+        },
+        (error) => {
+          console.log('ERROR CODE:', error.code);
+          console.log('ERROR MESSAGE:', error.message);
+          console.error('Full error object:', error);
+          alert(`Unable to get your location. Error: ${error.message}`);
+        }
+      );
+    } else {
+      console.log('Geolocation not supported'); // Debug line 5
+      alert('Geolocation not supported');
+    }
   }
 
   function handleClearClick(){ 
@@ -142,6 +170,10 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [currentInput]);
 
+  function handleSearchClick() {
+    setSelectedLocation(currentInput);
+  }
+
   return (
     <div>
       {/* Header Bar */}
@@ -162,7 +194,26 @@ export default function Home() {
               value={currentInput}
               onChange={e => setCurrentInput(e.target.value)}
               onKeyDown={handleEnterSearch}
+              onFocus={() => setSearchbarIsFocus(true)}
+              onBlur={() => {
+                setTimeout(() => setSearchbarIsFocus(false), 150);
+              }}
             />
+            {/* User clicks on the search bar and doesn't type anything */}
+            {searchbarIsFocus && currentInput.length === 0 && ( 
+              <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded shadow-lg z-10">
+                <div 
+                  className="p-2 hover:bg-blue-50 cursor-pointer text-blue-600 font-medium" 
+                  onClick={()=> {
+                    console.log('Click detected!');
+                    handleCurrentLocation()
+                  }}
+                  
+                >
+                  📍 Use my current location
+                </div> 
+              </div> 
+            )}
             {showSuggestions && suggestions.length > 0 && (
               <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded shadow-lg z-10">
                 {suggestions.map((suggestion) => (

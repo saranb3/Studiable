@@ -190,7 +190,7 @@ export default function Home() {
             <input
               type="text"
               placeholder="Search study spots..."
-              className="w-96 pr-20"
+              className="w-95 h-10 pr-20 pl-4 rounded-full bg-gray-100 border border-gray-200 focus:outline-none"
               value={currentInput}
               onChange={e => setCurrentInput(e.target.value)}
               onKeyDown={handleEnterSearch}
@@ -227,7 +227,7 @@ export default function Home() {
                 ))}
               </div>
             )}
-            <button className="absolute right-12 top-1/2 -translate-y-1/2 cursor-pointer" onClick={handleClearClick}>
+            <button className="absolute right-10 top-1/2 -translate-y-1/2 cursor-pointer" onClick={handleClearClick}>
               <X size={19}/>
             </button>
             <button className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer" onClick={handleSearchClick}>

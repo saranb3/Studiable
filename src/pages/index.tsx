@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Search, X} from 'lucide-react';
 import axios from 'axios'; 
 
@@ -13,6 +13,7 @@ export default function Home() {
 
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const justSelectedRef = useRef(false);
 
   async function fetchSuggestions(input: string) {
     try {
@@ -119,12 +120,17 @@ export default function Home() {
 
   // Handler for when a suggestion is clicked
   function handleSuggestionClick(suggestion: Suggestion) {
+    justSelectedRef.current = true;
     setShowSuggestions(false);
     setCurrentInput(suggestion.description);
     setSelectedLocation(suggestion.description);
   }
 
   useEffect(() => {
+    if (justSelectedRef.current) {
+      justSelectedRef.current = false;
+      return;
+    }
     const timer = setTimeout(() => {
       if (currentInput.length >= 3) {
         fetchSuggestions(currentInput);
@@ -152,7 +158,7 @@ export default function Home() {
             <input
               type="text"
               placeholder="Search study spots..."
-              className="w-96"
+              className="w-96 pr-20"
               value={currentInput}
               onChange={e => setCurrentInput(e.target.value)}
               onKeyDown={handleEnterSearch}
@@ -170,11 +176,11 @@ export default function Home() {
                 ))}
               </div>
             )}
-            <button className="absolute right-12 top-1/2 -translate-y-1/2" onClick={handleClearClick}>
-              <X />
+            <button className="absolute right-12 top-1/2 -translate-y-1/2 cursor-pointer" onClick={handleClearClick}>
+              <X size={19}/>
             </button>
-            <button className="absolute right-2 top-1/2 -translate-y-1/2" onClick={handleSearchClick}>
-              <Search />
+            <button className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer" onClick={handleSearchClick}>
+              <Search size={19} />
             </button>
           </div>
         </div>

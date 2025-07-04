@@ -126,25 +126,46 @@ export default function Home() {
   function showStudySpots(){ 
     if(selectedLocation) { 
       return (
-        <ul>
+        // Study spot card structure 
+        <div className="space-y-4">
           {studySpots.slice(0, 3).map((spot, idx) => (
-            <>
-              <li key={idx}>
-                <div>Name: <strong>{spot.name}</strong></div>
-                <div>Location: {spot.location}</div>
-                <div>Rating: {spot.rating} ⭐ | Open time: {spot.openTime}</div>
-                <span>{spot.Wifi && <span className= "bg-yellow-300/30 text-amber-900 px-2 py-1 rounded">Wifi</span>} </span> 
-                <span>{spot.Coffee && <span className= "bg-yellow-300/30 text-amber-900 px-2 py-1 rounded">Coffee</span>} </span> 
-                <span>{spot.Outlets && <span className= "bg-yellow-300/30 text-amber-900 px-2 py-1 rounded">Outlets</span>} </span> 
-              </li>
-              <br />
-            </>
-          ))}
-        </ul>
-      );
-    }
-    return null;
+              <div key={idx} className="bg-white shadow-md rounded-lg p-6 flex items-start">
+                {/* Image Placeholder on the left */}
+                <div className="w-35 h-35 bg-gray-200 rounded-md flex items-center justify-center mr-6 flex-shrink-0">
+                  <span className="text-3xl text-gray-400">📷</span>
+                </div>
+                {/* Card Content on the right */}
+                <div className="flex-1">
+                  {/* Header Section: Location Name and Rating */}
+                  <div className="flex items-center mb-2 align-baseline">
+                    <span className="font-bold">{spot.name}</span>
+                    <span className="ml-2 flex items-center font-bold">
+                      {spot.rating}
+                      <span className="ml-1">⭐</span>
+                    </span>
+                  </div>
+                  {/* Location section */}
+                  <div className="text-gray-600 text-sm mb-3">
+                    {spot.location}
+                  </div>
+                  {/* Amenities section */}
+                  <div className="flex gap-2 mb-3">
+                    {spot.Wifi && <span className="bg-yellow-300/30 text-amber-900 px-2 py-1 rounded">Wifi</span>}
+                    {spot.Coffee && <span className="bg-yellow-300/30 text-amber-900 px-2 py-1 rounded">Coffee</span>}
+                    {spot.Outlets && <span className="bg-yellow-300/30 text-amber-900 px-2 py-1 rounded">Outlets</span>}
+                  </div>
+                  {/* Footer section - Open time */}
+                  <div className="text-sm text-gray-500">
+                    Open time: {spot.openTime}
+                  </div>
+                </div>
+              </div>
+            ))}
+      </div>
+    );
   }
+  return null;
+}
 
   // Handler for when a suggestion is clicked
   function handleSuggestionClick(suggestion: Suggestion) {
@@ -230,7 +251,7 @@ export default function Home() {
             <button className="absolute right-10 top-1/2 -translate-y-1/2 cursor-pointer" onClick={handleClearClick}>
               <X size={19}/>
             </button>
-            <button className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer" onClick={handleSearchClick}>
+            <button className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer" onClick={handleSearchClick}>
               <Search size={19} />
             </button>
           </div>

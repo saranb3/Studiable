@@ -14,13 +14,13 @@ type ResponseData = {
 async function geocodeSingleAddress(address:string, apiKey: string) { 
     try { 
     
-    // Step 1: Encode the address - what JavaScript function encodes text for URLs?
+    // Step 1: Encode the address  
     const encodedAddress = encodeURIComponent(address);
     
-    // Step 2: Build the Google API URL - remember the pattern from earlier?
+    // Step 2: Build the Google API URL 
     const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodedAddress}&key=${apiKey}`;
 
-    // Step 3: Make the fetch request - similar to how your frontend calls your API
+    // Step 3: Make the fetch request 
     const response = await fetch(url); 
     
     // Step 4: Parse the JSON response

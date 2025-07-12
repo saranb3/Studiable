@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, X} from 'lucide-react';
+import { Search, X, MapPin, Clock, Star, Wifi, Coffee, Zap } from 'lucide-react';
 
 type Suggestion = {
   description: string;
@@ -17,20 +17,11 @@ type StudySpotWithDistance = {
   openTime: string;
   distance?: number; // Distance in km
   coordinates: { lat: number; lng: number };
+  place_id: string;
+  photos?: string[];
+  price_level?: number;
+  user_ratings_total?: number;
 };
-
-// Distance calculation function using Haversine formula
-function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371; // Earth's radius in kilometers
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLng/2) * Math.sin(dLng/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c; // Distance in kilometers
-}
 
 // Function to get coordinates from selectedLocation
 async function getCoordinatesFromLocation(location: string): Promise<{lat: number, lng: number} | null> {
@@ -83,48 +74,13 @@ export default function Home() {
   const justSelectedRef = useRef(false);
   const [searchbarIsFocus, setSearchbarIsFocus] = useState(false); 
   
-  // New state for distance filtering
+  // State for distance filtering and study spots
   const [userCoordinates, setUserCoordinates] = useState<{lat: number, lng: number} | null>(null);
   const [selectedDistance, setSelectedDistance] = useState<number>(10); // Default 10km
   const [studySpots, setStudySpots] = useState<StudySpotWithDistance[]>([]);
   const [filteredSpots, setFilteredSpots] = useState<StudySpotWithDistance[]>([]);
-
-  // Updated study spots data with coordinates
-  const initialStudySpots: StudySpotWithDistance[] = [
-    {
-      name: "Starbucks",
-      location: "101 เดอะเติร์ธเพลส ห้อง 112-A ชั้น 1 โซนฮิลล์ไซด์ ทาวน์, ถนน สุขุมวิท 101/1 Bang Chak, Phra Khanong, Bangkok 10260",
-      rating: 4.7,
-      Wifi: true,
-      Coffee: true,
-      Quiet: true,
-      Outlets: true,
-      openTime: "8:00 AM - 10:00 PM",
-      coordinates: { lat: 13.6844702, lng: 100.622732 }
-    },
-    {
-      name: "True Cafe",
-      location: "ศูนย์การค้า วิสซ์ดอม วัน-โอ-วัน, เลขที่ 101 Sukhumvit Rd, Bang Chak, Phra Khanong, Bangkok 10260",
-      rating: 4.6,
-      Wifi: true,
-      Coffee: true,
-      Quiet: true,
-      Outlets: true,
-      openTime: "8:00 AM - 10:00 PM",
-      coordinates: { lat: 13.6853996, lng: 100.6111126 }
-    },
-    {
-      name: "Cataleya Estate",
-      location: "88 Soi Punnawitthi 33 alley, Bang Chak, Phra Khanong, Bangkok 10260",
-      rating: 4.8,
-      Wifi: true,
-      Coffee: true,
-      Quiet: true,
-      Outlets: true,
-      openTime: "8:00 AM - 10:00 PM",
-      coordinates: { lat: 13.6926677, lng: 100.6284165 }
-    },
-  ];
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function fetchSuggestions(input: string) {
     try {
@@ -147,6 +103,42 @@ export default function Home() {
       console.error('Error fetching suggestions:', error);
       setSuggestions([]);
       setShowSuggestions(false);
+    }
+  }
+
+  // Function to fetch study spots from Google Places API
+  async function fetchStudySpots(coordinates: {lat: number, lng: number}) {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch('/api/places-search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lat: coordinates.lat,
+          lng: coordinates.lng,
+          maxDistance: selectedDistance // Only pass the user's selected distance
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.studySpots) {
+        // Sort by distance (closest first)
+        const sortedSpots = data.studySpots.sort(
+          (a: StudySpotWithDistance, b: StudySpotWithDistance) => (a.distance || 0) - (b.distance || 0)
+        );
+        setStudySpots(sortedSpots);
+        setFilteredSpots(sortedSpots);
+      } else {
+        setError(data.message || 'Failed to fetch study spots');
+      }
+    } catch (error) {
+      console.error('Error fetching study spots:', error);
+      setError('Failed to fetch study spots');
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -190,13 +182,44 @@ export default function Home() {
   function handleClearClick(){ 
     setSelectedLocation(''); 
     setCurrentInput(''); 
+    setStudySpots([]);
+    setFilteredSpots([]);
+    setUserCoordinates(null);
   }
 
   function showStudySpots() {
     if (!selectedLocation) {
       return (
         <div className="text-center text-gray-500 mt-8">
-          <p>Enter a location to find study spots near you!</p>
+          <MapPin className="mx-auto mb-4" size={48} />
+          <p className="text-xl">Enter a location to find study spots near you!</p>
+        </div>
+      );
+    }
+
+    if (isLoading) {
+      return (
+        <div className="text-center mt-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-lg">Finding study spots near you...</p>
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="text-center text-red-500 mt-8">
+          <p className="text-lg">Error: {error}</p>
+          <button 
+            onClick={() => {
+              if (userCoordinates) {
+                fetchStudySpots(userCoordinates);
+              }
+            }}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Try Again
+          </button>
         </div>
       );
     }
@@ -204,7 +227,7 @@ export default function Home() {
     if (filteredSpots.length === 0) {
       return (
         <div className="text-center text-gray-500 mt-8">
-          <p>No study spots found within {selectedDistance}km of your location.</p>
+          <p className="text-lg">No study spots found within {selectedDistance}km of your location.</p>
           <p className="text-sm mt-2">Try increasing the distance filter or searching a different location.</p>
         </div>
       );
@@ -219,22 +242,35 @@ export default function Home() {
           </p>
         </div>
         
-        {filteredSpots.map((spot, idx) => (
-          <div key={idx} className="bg-white shadow-md rounded-lg p-6 flex items-start">
-            {/* Image Placeholder on the left */}
-            <div className="w-35 h-35 bg-gray-200 rounded-md flex items-center justify-center mr-6 flex-shrink-0">
-              <span className="text-3xl text-gray-400">📷</span>
+        {filteredSpots.map((spot) => (
+          <div key={spot.place_id} className="bg-white shadow-md rounded-lg p-6 flex items-start">
+            {/* Image Section */}
+            <div className="w-32 h-32 bg-gray-200 rounded-md flex items-center justify-center mr-6 flex-shrink-0">
+              {spot.photos && spot.photos.length > 0 ? (
+                <img 
+                  src={spot.photos[0]} 
+                  alt={spot.name}
+                  className="w-full h-full object-cover rounded-md"
+                />
+              ) : (
+                <span className="text-3xl text-gray-400">📷</span>
+              )}
             </div>
             
-            {/* Card Content on the right */}
+            {/* Card Content */}
             <div className="flex-1">
-              {/* Header Section: Location Name, Rating, and Distance */}
-              <div className="flex items-center mb-2 align-baseline">
-                <span className="font-bold">{spot.name}</span>
-                <span className="ml-2 flex items-center font-bold">
-                  {spot.rating}
-                  <span className="ml-1">⭐</span>
-                </span>
+              {/* Header Section */}
+              <div className="flex items-center mb-2">
+                <span className="font-bold text-lg">{spot.name}</span>
+                <div className="ml-2 flex items-center">
+                  <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                  <span className="ml-1 font-medium">{spot.rating}</span>
+                  {spot.user_ratings_total && (
+                    <span className="ml-1 text-sm text-gray-500">
+                      ({spot.user_ratings_total} reviews)
+                    </span>
+                  )}
+                </div>
                 {spot.distance && (
                   <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 rounded text-sm">
                     {spot.distance.toFixed(1)}km away
@@ -242,21 +278,38 @@ export default function Home() {
                 )}
               </div>
               
-              {/* Location section */}
-              <div className="text-gray-600 text-sm mb-3">
+              {/* Location */}
+              <div className="text-gray-600 text-sm mb-3 flex items-start">
+                <MapPin className="w-4 h-4 mr-1 mt-0.5 flex-shrink-0" />
                 {spot.location}
               </div>
               
-              {/* Amenities section */}
+              {/* Amenities */}
               <div className="flex gap-2 mb-3">
-                {spot.Wifi && <span className="bg-yellow-300/30 text-amber-900 px-2 py-1 rounded">Wifi</span>}
-                {spot.Coffee && <span className="bg-yellow-300/30 text-amber-900 px-2 py-1 rounded">Coffee</span>}
-                {spot.Outlets && <span className="bg-yellow-300/30 text-amber-900 px-2 py-1 rounded">Outlets</span>}
+                {spot.Wifi && (
+                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded flex items-center">
+                    <Wifi className="w-3 h-3 mr-1" />
+                    Wifi
+                  </span>
+                )}
+                {spot.Coffee && (
+                  <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded flex items-center">
+                    <Coffee className="w-3 h-3 mr-1" />
+                    Coffee
+                  </span>
+                )}
+                {spot.Outlets && (
+                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded flex items-center">
+                    <Zap className="w-3 h-3 mr-1" />
+                    Outlets
+                  </span>
+                )}
               </div>
               
-              {/* Footer section - Open time */}
-              <div className="text-sm text-gray-500">
-                Open time: {spot.openTime}
+              {/* Opening Hours */}
+              <div className="text-sm text-gray-500 flex items-center">
+                <Clock className="w-4 h-4 mr-1" />
+                {spot.openTime}
               </div>
             </div>
           </div>
@@ -290,11 +343,11 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [currentInput]);
 
-  // useEffect to handle distance calculations whenever selectedLocation changes
+  // useEffect to handle location changes and fetch study spots
   useEffect(() => {
-    async function calculateDistances() {
+    async function handleLocationChange() {
       if (!selectedLocation) {
-        setStudySpots(initialStudySpots);
+        setStudySpots([]);
         setFilteredSpots([]);
         setUserCoordinates(null);
         return;
@@ -304,56 +357,25 @@ export default function Home() {
       const userCoords = await getCoordinatesFromLocation(selectedLocation);
       if (!userCoords) {
         console.error('Could not get coordinates for selected location');
+        setError('Could not find coordinates for the selected location');
         return;
       }
 
       setUserCoordinates(userCoords);
-
-      // Prepare destinations for Distance Matrix API
-      const destinations = initialStudySpots.map(spot => `${spot.coordinates.lat},${spot.coordinates.lng}`);
-      let distances: number[] = [];
-      try {
-        const response = await fetch('/api/distance-matrix', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            origin: `${userCoords.lat},${userCoords.lng}`,
-            destinations
-          })
-        });
-        const data = await response.json();
-        if (data.rows && data.rows[0] && data.rows[0].elements) {
-          distances = data.rows[0].elements.map((el: any) =>
-            el.status === 'OK' ? el.distance.value / 1000 : null // meters to km
-          );
-        }
-      } catch (err) {
-        console.error('Failed to fetch travel distances:', err);
-      }
-
-      // Calculate distances for all study spots (using Google API results)
-      const spotsWithDistance = initialStudySpots.map((spot, idx) => ({
-        ...spot,
-        distance: distances[idx] !== null && distances[idx] !== undefined ? distances[idx] : undefined
-      }));
-
-      // Sort by distance (closest first)
-      spotsWithDistance.sort((a, b) => (a.distance || 0) - (b.distance || 0));
-
-      setStudySpots(spotsWithDistance);
-
-      // Filter by selected distance
-      const filtered = filterStudySpotsByDistance(spotsWithDistance, selectedDistance);
-      setFilteredSpots(filtered);
+      
+      // Fetch study spots from Google Places API
+      await fetchStudySpots(userCoords);
     }
 
-    calculateDistances();
-  }, [selectedLocation, selectedDistance]);
+    handleLocationChange();
+  }, [selectedLocation]);
 
-  // Initialize study spots on component mount
+  // useEffect to handle distance filter changes - refetch from server with new distance
   useEffect(() => {
-    setStudySpots(initialStudySpots);
-  }, []);
+    if (userCoordinates && selectedLocation) {
+      fetchStudySpots(userCoordinates);
+    }
+  }, [selectedDistance]); // Refetch when distance changes
 
   function handleSearchClick() {
     setSelectedLocation(currentInput);
@@ -365,7 +387,7 @@ export default function Home() {
       <div className="text-center py-12 px-4 bg-white shadow">
         <h1 className="text-4xl font-bold text-gray-900 mb-2">Find a Studiable Space!</h1>
         <p className="text-lg text-gray-600 mb-6 max-w-2xl mx-auto">
-          Discover quiet cafes, libraries, and coworking spaces!
+          Discover quiet cafes, libraries, and coworking spaces powered by Google Places!
         </p>
         <div className="max-w-xl mx-auto flex items-center gap-4">
           <span className="whitespace-nowrap text-lg font-medium text-gray-700">
@@ -375,7 +397,7 @@ export default function Home() {
             <input
               type="text"
               placeholder="Search study spots..."
-              className="w-95 h-10 pr-20 pl-4 rounded-full bg-gray-100 border border-gray-200 focus:outline-none"
+              className="w-full h-10 pr-20 pl-4 rounded-full bg-gray-100 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={currentInput}
               onChange={e => setCurrentInput(e.target.value)}
               onKeyDown={handleEnterSearch}
@@ -384,15 +406,12 @@ export default function Home() {
                 setTimeout(() => setSearchbarIsFocus(false), 150);
               }}
             />
-            {/* User clicks on the search bar and doesn't type anything */}
+            {/* Current location option */}
             {searchbarIsFocus && currentInput.length === 0 && ( 
               <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded shadow-lg z-10">
                 <div 
                   className="p-2 hover:bg-blue-50 cursor-pointer text-blue-600 font-medium" 
-                  onClick={()=> {
-                    console.log('Click detected!');
-                    handleCurrentLocation()
-                  }}
+                  onClick={handleCurrentLocation}
                 >
                   📍 Use my current location
                 </div> 
@@ -469,18 +488,6 @@ export default function Home() {
               </label>
             </div>
           </div>
-          
-          {/* Show current filter status */}
-          {/* {selectedLocation && (
-            <div className="mb-4 p-3 bg-blue-50 rounded">
-              <p className="text-sm text-blue-800">
-                Showing spots within {selectedDistance}km of your location
-              </p>
-              <p className="text-xs text-blue-600">
-                Found {filteredSpots.length} spots
-              </p>
-            </div>
-          )} */}
           
           {/* Amenities */}
           <div className="mb-6">

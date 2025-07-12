@@ -1,30 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-type PlaceResult = {
-  place_id: string;
-  name: string;
-  formatted_address: string;
-  rating: number;
-  geometry: {
-    location: {
-      lat: number;
-      lng: number;
-    };
-  };
-  opening_hours?: {
-    open_now: boolean;
-    weekday_text: string[];
-  };
-  photos?: Array<{
-    photo_reference: string;
-    height: number;
-    width: number;
-  }>;
-  types: string[];
-  price_level?: number;
-  user_ratings_total?: number;
-};
-
 type StudySpot = {
   name: string;
   location: string;
@@ -39,6 +14,7 @@ type StudySpot = {
   photos?: string[];
   price_level?: number;
   user_ratings_total?: number;
+  distance?: number; // Distance in km by road
 };
 
 type ResponseData = {
@@ -54,7 +30,7 @@ export default async function handler(
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const { lat, lng, radius = 5000 } = req.body; // radius in meters, default 5km
+  const { lat, lng, maxDistance = 10 } = req.body; // maxDistance in km
 
   if (!lat || !lng) {
     return res.status(400).json({ message: 'Missing coordinates' });
@@ -68,8 +44,11 @@ export default async function handler(
   try {
     const studySpots: StudySpot[] = [];
     
-    console.log(`Searching for places near ${lat}, ${lng} within ${radius}m`);
+    console.log(`Searching for places near ${lat}, ${lng}, filtering to ${maxDistance}km by road distance`);
     
+    // Use a generous radius for Google search (we'll filter by road distance later)
+    const searchRadius = Math.max(maxDistance * 1500, 15000); // 1.5x the max distance or 15km minimum
+
     // Search for different types of places that could be good for studying
     const searchQueries = [
       'cafe',
@@ -79,10 +58,9 @@ export default async function handler(
     ];
 
     for (const query of searchQueries) {
-      const searchUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&type=establishment&keyword=${encodeURIComponent(query)}&key=${apiKey}`;
+      const searchUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${searchRadius}&type=establishment&keyword=${encodeURIComponent(query)}&key=${apiKey}`;
       
       console.log(`Searching for: ${query}`);
-      console.log(`URL: ${searchUrl}`);
       
       const response = await fetch(searchUrl);
       const data = await response.json();
@@ -92,7 +70,7 @@ export default async function handler(
 
       if (data.status === 'OK' && data.results) {
         for (const place of data.results) {
-          console.log(`Found place: ${place.name}, types: ${place.types?.join(', ')}, rating: ${place.rating}`);
+          console.log(`Found place: ${place.name}, types: ${place.types?.join(', ')}, rating: ${place.rating || 'No rating'}`);
           
           // Skip if we already have this place (using name + coordinates as unique identifier)
           const placeKey = `${place.name}_${place.geometry.location.lat}_${place.geometry.location.lng}`;
@@ -113,7 +91,7 @@ export default async function handler(
             place.name.toLowerCase().includes('workspace');
 
           if (isGoodForStudying) {
-            console.log(`${place.name} is good for studying, fetching details...`);
+            console.log(`${place.name} is potentially good for studying, fetching details...`);
             
             // Get more detailed information about the place
             const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_address,rating,geometry,opening_hours,photos,types,price_level,user_ratings_total&key=${apiKey}`;
@@ -155,56 +133,152 @@ export default async function handler(
                 name: placeDetails.name,
                 location: placeDetails.formatted_address,
                 rating: placeDetails.rating || 0,
-                Wifi: isCafe || isLibrary || isCoworking, // Most cafes, libraries, and coworking spaces have WiFi
+                Wifi: isCafe || isLibrary || isCoworking,
                 Coffee: isCafe,
                 Quiet: isLibrary || isCoworking,
-                Outlets: isCafe || isLibrary || isCoworking, // Most study-friendly places have outlets
+                Outlets: isCafe || isLibrary || isCoworking,
                 openTime: openTime,
                 coordinates: {
                   lat: placeDetails.geometry.location.lat,
                   lng: placeDetails.geometry.location.lng
                 },
-                place_id: placeDetails.place_id,
+                place_id: place.place_id || `${place.name}_${place.geometry.location.lat}_${place.geometry.location.lng}`,
                 photos: photos,
                 price_level: placeDetails.price_level,
                 user_ratings_total: placeDetails.user_ratings_total
               };
 
               studySpots.push(studySpot);
-              console.log(`Added study spot: ${studySpot.name}`);
+              console.log(`Added study spot: ${studySpot.name} (Total spots: ${studySpots.length})`);
             } else {
-              console.log(`Failed to get details for ${place.name}`);
+              console.log(`Failed to get details for ${place.name}: ${detailsData.status} - ${detailsData.error_message || 'Unknown error'}`);
+              
+              // Fallback: use basic place data from nearby search
+              const isCafe = place.types.includes('cafe') || 
+                           place.name.toLowerCase().includes('coffee') ||
+                           place.name.toLowerCase().includes('cafe') ||
+                           place.name.toLowerCase().includes('starbucks') ||
+                           place.name.toLowerCase().includes('true coffee');
+              
+              const isLibrary = place.types.includes('library');
+              const isCoworking = place.name.toLowerCase().includes('coworking') ||
+                                place.name.toLowerCase().includes('workspace');
+
+              const fallbackStudySpot: StudySpot = {
+                name: place.name,
+                location: place.vicinity || 'Address not available',
+                rating: place.rating || 0,
+                Wifi: isCafe || isLibrary || isCoworking,
+                Coffee: isCafe,
+                Quiet: isLibrary || isCoworking,
+                Outlets: isCafe || isLibrary || isCoworking,
+                openTime: 'Hours not available',
+                coordinates: {
+                  lat: place.geometry.location.lat,
+                  lng: place.geometry.location.lng
+                },
+                place_id: place.place_id || `${place.name}_${place.geometry.location.lat}_${place.geometry.location.lng}`,
+                photos: [],
+                price_level: place.price_level,
+                user_ratings_total: place.user_ratings_total
+              };
+
+              studySpots.push(fallbackStudySpot);
+              console.log(`Added fallback study spot: ${fallbackStudySpot.name} (Total spots: ${studySpots.length})`);
             }
           } else {
             console.log(`${place.name} not suitable for studying`);
           }
         }
+      } else {
+        console.log(`Search failed with status: ${data.status}, error: ${data.error_message || 'Unknown error'}`);
       }
     }
 
-    // Remove duplicates using name+coordinates as unique identifier and sort by rating
-    console.log(`Total study spots before deduplication: ${studySpots.length}`);
+    console.log(`Total study spots found: ${studySpots.length}`);
     
-    const uniqueStudySpots = studySpots.filter((spot, index, self) => {
-      const spotKey = `${spot.name}_${spot.coordinates.lat}_${spot.coordinates.lng}`;
-      const firstIndex = self.findIndex(s => `${s.name}_${s.coordinates.lat}_${s.coordinates.lng}` === spotKey);
-      const isUnique = index === firstIndex;
-      if (!isUnique) {
-        console.log(`Removing duplicate: ${spot.name} (coordinates: ${spot.coordinates.lat}, ${spot.coordinates.lng})`);
+    // Now filter by actual road distance using Distance Matrix API
+    if (studySpots.length > 0) {
+      console.log('Calculating road distances...');
+      
+      // Process in batches of 25 (Google's limit for Distance Matrix API)
+      const batchSize = 25;
+      const spotsWithRoadDistance: StudySpot[] = [];
+      
+      for (let i = 0; i < studySpots.length; i += batchSize) {
+        const batch = studySpots.slice(i, i + batchSize);
+        const destinations = batch.map(spot => `${spot.coordinates.lat},${spot.coordinates.lng}`);
+        
+        try {
+          const originsParam = encodeURIComponent(`${lat},${lng}`);
+          const destinationsParam = encodeURIComponent(destinations.join('|'));
+          const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${originsParam}&destinations=${destinationsParam}&key=${apiKey}&mode=driving`;
+
+          const distanceResponse = await fetch(url);
+          const distanceData = await distanceResponse.json();
+          
+          if (distanceData.status === 'OK' && distanceData.rows && distanceData.rows[0] && distanceData.rows[0].elements) {
+            batch.forEach((spot, idx) => {
+              const element = distanceData.rows[0].elements[idx];
+              if (element.status === 'OK') {
+                const roadDistanceKm = element.distance.value / 1000; // Convert meters to km
+                console.log(`${spot.name}: ${roadDistanceKm.toFixed(1)}km by road`);
+                
+                if (roadDistanceKm <= maxDistance) {
+                  spotsWithRoadDistance.push({
+                    ...spot,
+                    distance: roadDistanceKm
+                  });
+                  console.log(`✓ ${spot.name} within ${maxDistance}km (${roadDistanceKm.toFixed(1)}km)`);
+                } else {
+                  console.log(`✗ ${spot.name} too far (${roadDistanceKm.toFixed(1)}km > ${maxDistance}km)`);
+                }
+              } else {
+                console.log(`Distance calculation failed for ${spot.name}: ${element.status}`);
+              }
+            });
+          } else {
+            console.log(`Distance Matrix API failed: ${distanceData.status}`);
+            // If distance calculation fails, include all spots from this batch without distance
+            spotsWithRoadDistance.push(...batch);
+          }
+        } catch (err) {
+          console.error('Error calculating road distances for batch:', err);
+          // If distance calculation fails, include all spots from this batch
+          spotsWithRoadDistance.push(...batch);
+        }
       }
-      return isUnique;
-    });
+      
+      console.log(`Study spots within ${maxDistance}km by road: ${spotsWithRoadDistance.length}`);
+      
+      // Remove duplicates using name+coordinates as unique identifier
+      const uniqueStudySpots = spotsWithRoadDistance.filter((spot, index, self) => {
+        const spotKey = `${spot.name}_${spot.coordinates.lat}_${spot.coordinates.lng}`;
+        const firstIndex = self.findIndex(s => `${s.name}_${s.coordinates.lat}_${s.coordinates.lng}` === spotKey);
+        return index === firstIndex;
+      });
 
-    console.log(`Study spots after deduplication: ${uniqueStudySpots.length}`);
+      console.log(`Study spots after deduplication: ${uniqueStudySpots.length}`);
 
-    const sortedSpots = uniqueStudySpots.sort((a, b) => b.rating - a.rating);
-    console.log(`Study spots after sorting: ${sortedSpots.length}`);
-    
-    const finalSpots = sortedSpots.slice(0, 20); // Limit to top 20 results
-    console.log(`Final study spots count: ${finalSpots.length}`);
-    console.log('Study spots:', finalSpots.map(s => `${s.name} (${s.place_id})`));
+      // Sort by distance (closest first), then by rating
+      const sortedSpots = uniqueStudySpots.sort((a, b) => {
+        if (a.distance && b.distance) {
+          return a.distance - b.distance;
+        }
+        // If one doesn't have distance, put the one with distance first
+        if (a.distance && !b.distance) return -1;
+        if (!a.distance && b.distance) return 1;
+        // If neither has distance, sort by rating
+        return b.rating - a.rating;
+      });
+      
+      const finalSpots = sortedSpots.slice(0, 20); // Limit to top 20 results
+      console.log(`Final study spots count: ${finalSpots.length}`);
 
-    res.status(200).json({ studySpots: finalSpots });
+      res.status(200).json({ studySpots: finalSpots });
+    } else {
+      res.status(200).json({ studySpots: [] });
+    }
 
   } catch (error) {
     console.error('Error fetching study spots:', error);

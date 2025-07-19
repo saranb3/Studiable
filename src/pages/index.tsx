@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, X, MapPin, Clock, Star, Wifi, Coffee, Zap } from 'lucide-react';
+import { Search, X, MapPin, Clock, Star, Wifi, Coffee, Zap, ArrowUpDown } from 'lucide-react';
 
 type Suggestion = {
   description: string;
@@ -22,6 +22,8 @@ type StudySpotWithDistance = {
   price_level?: number;
   user_ratings_total?: number;
 };
+
+type SortOption = 'distance' | 'rating' | 'popular';
 
 // Function to get coordinates from selectedLocation
 async function getCoordinatesFromLocation(location: string): Promise<{lat: number, lng: number} | null> {
@@ -58,14 +60,6 @@ async function getCoordinatesFromLocation(location: string): Promise<{lat: numbe
   }
 }
 
-// Function to filter study spots by distance
-function filterStudySpotsByDistance(
-  spots: StudySpotWithDistance[], 
-  maxDistance: number
-): StudySpotWithDistance[] {
-  return spots.filter(spot => spot.distance !== undefined && spot.distance <= maxDistance);
-}
-
 export default function Home() {
   const [currentInput, setCurrentInput] = useState(''); 
   const [selectedLocation, setSelectedLocation] = useState(''); 
@@ -81,6 +75,41 @@ export default function Home() {
   const [filteredSpots, setFilteredSpots] = useState<StudySpotWithDistance[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // New state for sorting
+  const [sortBy, setSortBy] = useState<SortOption>('distance');
+
+  // Function to sort study spots
+  function sortStudySpots(spots: StudySpotWithDistance[], sortOption: SortOption): StudySpotWithDistance[] {
+    const sortedSpots = [...spots];
+    
+    switch (sortOption) {
+      case 'distance':
+        return sortedSpots.sort((a, b) => {
+          if (a.distance && b.distance) {
+            return a.distance - b.distance;
+          }
+          // If one doesn't have distance, put the one with distance first
+          if (a.distance && !b.distance) return -1;
+          if (!a.distance && b.distance) return 1;
+          // If neither has distance, maintain current order
+          return 0;
+        });
+      
+      case 'rating':
+        return sortedSpots.sort((a, b) => b.rating - a.rating);
+      
+      case 'popular':
+        return sortedSpots.sort((a, b) => {
+          const aReviews = a.user_ratings_total || 0;
+          const bReviews = b.user_ratings_total || 0;
+          return bReviews - aReviews;
+        });
+      
+      default:
+        return sortedSpots;
+    }
+  }
 
   async function fetchSuggestions(input: string) {
     try {
@@ -118,17 +147,14 @@ export default function Home() {
         body: JSON.stringify({
           lat: coordinates.lat,
           lng: coordinates.lng,
-          maxDistance: selectedDistance // Only pass the user's selected distance
+          maxDistance: selectedDistance
         })
       });
 
       const data = await response.json();
       
       if (data.studySpots) {
-        // Sort by distance (closest first)
-        const sortedSpots = data.studySpots.sort(
-          (a: StudySpotWithDistance, b: StudySpotWithDistance) => (a.distance || 0) - (b.distance || 0)
-        );
+        const sortedSpots = sortStudySpots(data.studySpots, sortBy);
         setStudySpots(sortedSpots);
         setFilteredSpots(sortedSpots);
       } else {
@@ -187,6 +213,14 @@ export default function Home() {
     setUserCoordinates(null);
   }
 
+  function handleSortChange(newSortOption: SortOption) {
+    setSortBy(newSortOption);
+    if (studySpots.length > 0) {
+      const sortedSpots = sortStudySpots(studySpots, newSortOption);
+      setFilteredSpots(sortedSpots);
+    }
+  }
+
   function showStudySpots() {
     if (!selectedLocation) {
       return (
@@ -235,11 +269,29 @@ export default function Home() {
 
     return (
       <div className="space-y-4">
-        <div className="mb-4">
-          <h2 className="text-2xl font-bold">Study Spots Near You</h2>
-          <p className="text-gray-600">
-            {filteredSpots.length} spots found within {selectedDistance}km
-          </p>
+        {/* Results Header with Sorting */}
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h2 className="text-2xl font-bold">Study Spots Near You</h2>
+            <p className="text-gray-600">
+              {filteredSpots.length} spots found within {selectedDistance}km
+            </p>
+          </div>
+          
+          {/* Sort Dropdown */}
+          <div className="flex items-center gap-2">
+            <ArrowUpDown className="w-4 h-4 text-gray-500" />
+            <span className="text-sm text-gray-600">Sort by:</span>
+            <select 
+              value={sortBy} 
+              onChange={(e) => handleSortChange(e.target.value as SortOption)}
+              className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="distance">Distance</option>
+              <option value="rating">Rating</option>
+              <option value="popular">Most Reviewed</option>
+            </select>
+          </div>
         </div>
         
         {filteredSpots.map((spot) => (
@@ -260,9 +312,9 @@ export default function Home() {
             {/* Card Content */}
             <div className="flex-1">
               {/* Header Section */}
-              <div className="flex items-center mb-2">
-                <span className="font-bold text-lg">{spot.name}</span>
-                <div className="ml-2 flex items-center">
+              <div className="flex items-center mb-2 flex-wrap">
+                <span className="font-bold text-lg mr-2">{spot.name}</span>
+                <div className="flex items-center mr-2">
                   <Star className="w-4 h-4 text-yellow-500 fill-current" />
                   <span className="ml-1 font-medium">{spot.rating}</span>
                   {spot.user_ratings_total && (
@@ -272,7 +324,7 @@ export default function Home() {
                   )}
                 </div>
                 {spot.distance && (
-                  <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 rounded text-sm">
+                  <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-sm font-medium">
                     {spot.distance.toFixed(1)}km away
                   </span>
                 )}
@@ -285,23 +337,28 @@ export default function Home() {
               </div>
               
               {/* Amenities */}
-              <div className="flex gap-2 mb-3">
+              <div className="flex gap-2 mb-3 flex-wrap">
                 {spot.Wifi && (
-                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded flex items-center">
+                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded flex items-center text-xs">
                     <Wifi className="w-3 h-3 mr-1" />
-                    Wifi
+                    WiFi
                   </span>
                 )}
                 {spot.Coffee && (
-                  <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded flex items-center">
+                  <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded flex items-center text-xs">
                     <Coffee className="w-3 h-3 mr-1" />
                     Coffee
                   </span>
                 )}
                 {spot.Outlets && (
-                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded flex items-center">
+                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded flex items-center text-xs">
                     <Zap className="w-3 h-3 mr-1" />
                     Outlets
+                  </span>
+                )}
+                {spot.Quiet && (
+                  <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">
+                    Quiet
                   </span>
                 )}
               </div>
@@ -375,7 +432,15 @@ export default function Home() {
     if (userCoordinates && selectedLocation) {
       fetchStudySpots(userCoordinates);
     }
-  }, [selectedDistance]); // Refetch when distance changes
+  }, [selectedDistance]);
+
+  // useEffect to handle sort changes
+  useEffect(() => {
+    if (studySpots.length > 0) {
+      const sortedSpots = sortStudySpots(studySpots, sortBy);
+      setFilteredSpots(sortedSpots);
+    }
+  }, [sortBy]);
 
   function handleSearchClick() {
     setSelectedLocation(currentInput);

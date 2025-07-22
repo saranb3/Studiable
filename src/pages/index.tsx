@@ -79,6 +79,23 @@ export default function Home() {
   // New state for sorting
   const [sortBy, setSortBy] = useState<SortOption>('distance');
 
+  // Filter states
+  const [filterWifi, setFilterWifi] = useState(false);
+  const [filterCoffee, setFilterCoffee] = useState(false);
+  const [filterOutlets, setFilterOutlets] = useState(false);
+  const [filterOpenNow, setFilterOpenNow] = useState(false);
+  const [filterMinRating, setFilterMinRating] = useState(0); // 0, 4, or 4.5
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const spotsPerPage = 10;
+
+  // Calculate paginated spots
+  const indexOfLastSpot = currentPage * spotsPerPage;
+  const indexOfFirstSpot = indexOfLastSpot - spotsPerPage;
+  const currentSpots = filteredSpots.slice(indexOfFirstSpot, indexOfLastSpot);
+  const totalPages = Math.ceil(filteredSpots.length / spotsPerPage);
+
   // Function to sort study spots
   function sortStudySpots(spots: StudySpotWithDistance[], sortOption: SortOption): StudySpotWithDistance[] {
     const sortedSpots = [...spots];
@@ -156,7 +173,7 @@ export default function Home() {
       if (data.studySpots) {
         const sortedSpots = sortStudySpots(data.studySpots, sortBy);
         setStudySpots(sortedSpots);
-        setFilteredSpots(sortedSpots);
+        // Initial filtering will be done by the useEffect hook
       } else {
         setError(data.message || 'Failed to fetch study spots');
       }
@@ -211,13 +228,19 @@ export default function Home() {
     setStudySpots([]);
     setFilteredSpots([]);
     setUserCoordinates(null);
+    setFilterWifi(false);
+    setFilterCoffee(false);
+    setFilterOutlets(false);
+    setFilterOpenNow(false);
+    setFilterMinRating(0);
+    setCurrentPage(1); // Reset pagination
   }
 
   function handleSortChange(newSortOption: SortOption) {
     setSortBy(newSortOption);
     if (studySpots.length > 0) {
       const sortedSpots = sortStudySpots(studySpots, newSortOption);
-      setFilteredSpots(sortedSpots);
+      setStudySpots(sortedSpots); // This will trigger the filter useEffect
     }
   }
 
@@ -294,10 +317,11 @@ export default function Home() {
           </div>
         </div>
         
-        {filteredSpots.map((spot) => (
-          <div key={spot.place_id} className="bg-white shadow-md rounded-lg p-6 flex items-start">
+        {/* Paginated Study Spots */}
+        {currentSpots.map((spot) => (
+          <div key={spot.place_id} className="bg-white shadow-md rounded-xl p-6 flex items-start">
             {/* Image Section */}
-            <div className="w-32 h-32 bg-gray-200 rounded-md flex items-center justify-center mr-6 flex-shrink-0">
+            <div className="w-32 h-32 bg-gray-200 rounded-lg flex items-center justify-center mr-6 flex-shrink-0">
               {spot.photos && spot.photos.length > 0 ? (
                 <img 
                   src={spot.photos[0]} 
@@ -371,6 +395,20 @@ export default function Home() {
             </div>
           </div>
         ))}
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex justify-center mt-6 gap-2">
+            {Array.from({ length: totalPages }, (_, i) => (
+              <button
+                key={i + 1}
+                className={`px-3 py-1 rounded ${currentPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+                onClick={() => setCurrentPage(i + 1)}
+              >
+                {i + 1}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -407,6 +445,7 @@ export default function Home() {
         setStudySpots([]);
         setFilteredSpots([]);
         setUserCoordinates(null);
+        setCurrentPage(1); // Reset pagination
         return;
       }
 
@@ -415,6 +454,7 @@ export default function Home() {
       if (!userCoords) {
         console.error('Could not get coordinates for selected location');
         setError('Could not find coordinates for the selected location');
+        setCurrentPage(1); // Reset pagination
         return;
       }
 
@@ -441,6 +481,18 @@ export default function Home() {
       setFilteredSpots(sortedSpots);
     }
   }, [sortBy]);
+
+  // Filtering logic for amenities and rating
+  useEffect(() => {
+    let filtered = studySpots;
+    if (filterWifi) filtered = filtered.filter(spot => spot.Wifi);
+    if (filterCoffee) filtered = filtered.filter(spot => spot.Coffee);
+    if (filterOutlets) filtered = filtered.filter(spot => spot.Outlets);
+    if (filterOpenNow) filtered = filtered.filter(spot => spot.openTime && spot.openTime.toLowerCase().includes('open'));
+    if (filterMinRating > 0) filtered = filtered.filter(spot => spot.rating >= filterMinRating);
+    setFilteredSpots(filtered);
+    setCurrentPage(1); // Reset to first page on filter change
+  }, [studySpots, filterWifi, filterCoffee, filterOutlets, filterOpenNow, filterMinRating]);
 
   function handleSearchClick() {
     setSelectedLocation(currentInput);
@@ -558,9 +610,9 @@ export default function Home() {
           <div className="mb-6">
             <h4 className="font-semibold mb-2">Amenities</h4>
             <div>
-              <label className="block mb-1"><input type="checkbox" /> WiFi</label>
-              <label className="block mb-1"><input type="checkbox" /> Coffee</label>
-              <label className="block mb-1"><input type="checkbox" /> Outlets</label>
+              <label className="block mb-1"><input type="checkbox" checked={filterWifi} onChange={e => setFilterWifi(e.target.checked)} /> WiFi</label>
+              <label className="block mb-1"><input type="checkbox" checked={filterCoffee} onChange={e => setFilterCoffee(e.target.checked)} /> Coffee</label>
+              <label className="block mb-1"><input type="checkbox" checked={filterOutlets} onChange={e => setFilterOutlets(e.target.checked)} /> Outlets</label>
             </div>
           </div>
           
@@ -568,7 +620,7 @@ export default function Home() {
           <div className="mb-6">
             <h4 className="font-semibold mb-2">Availability</h4>
             <div>
-              <label className="block mb-1"><input type="checkbox" /> Open Now</label>
+              <label className="block mb-1"><input type="checkbox" checked={filterOpenNow} onChange={e => setFilterOpenNow(e.target.checked)} /> Open Now</label>
             </div>
           </div>
           
@@ -576,8 +628,8 @@ export default function Home() {
           <div className="mb-6">
             <h4 className="font-semibold mb-2">Minimum Rating</h4>
             <div>
-              <label className="block mb-1"><input type="checkbox" /> 4.0+</label>
-              <label className="block mb-1"><input type="checkbox" /> 4.5+</label>
+              <label className="block mb-1"><input type="checkbox" checked={filterMinRating === 4} onChange={e => setFilterMinRating(e.target.checked ? 4 : 0)} /> 4.0+</label>
+              <label className="block mb-1"><input type="checkbox" checked={filterMinRating === 4.5} onChange={e => setFilterMinRating(e.target.checked ? 4.5 : 0)} /> 4.5+</label>
             </div>
           </div>
         </div>

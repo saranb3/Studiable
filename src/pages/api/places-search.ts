@@ -351,7 +351,7 @@ export default async function handler(
         return b.rating - a.rating;
       });
 
-      const finalSpots = sortedSpots.slice(0, 20); // Limit to top 20 results
+      const finalSpots = sortedSpots.slice(0, 30); // Limit to top 20 results
       console.log(`Final study spots count: ${finalSpots.length}`);
 
       res.status(200).json({ studySpots: finalSpots });
